@@ -1,13 +1,16 @@
 GPU=0
 CUDNN=0
 CUDNN_HALF=0
-OPENCV=0
+OPENCV=1
 AVX=0
-OPENMP=0
+OPENMP=1
 LIBSO=0
 ZED_CAMERA=0
 ZED_CAMERA_v2_8=0
-
+OFFLOAD=0
+LLVM_INSTALL=/home/kqd0717/MOCHA/llvm-install
+CUDA_INSTALL=/home/kqd0717/MOCHA/cuda-install/
+REMORA_LIB=1
 # set GPU=1 and CUDNN=1 to speedup on GPU
 # set CUDNN_HALF=1 to further speedup 3 x times (Mixed-precision on Tensor Cores) GPU: Volta, Xavier, Turing, Ampere, Ada and higher
 # set AVX=1 and OPENMP=1 to speedup on CPU (if error occurs then set AVX=0)
@@ -15,7 +18,7 @@ ZED_CAMERA_v2_8=0
 # set ZED_CAMERA_v2_8=1 to enable ZED SDK 2.X
 
 USE_CPP=0
-DEBUG=0
+DEBUG=1
 
 ARCH= -gencode arch=compute_50,code=[sm_50,compute_50] \
       -gencode arch=compute_52,code=[sm_52,compute_52] \
@@ -84,20 +87,33 @@ APPNAMESO=uselib
 endif
 
 ifeq ($(USE_CPP), 1)
-CC=g++
+## ClangIR
+CC=${LLVM_INSTALL}/bin/clang++
+## Polygeist
+#CC=${LLVM_INSTALL}/bin/cgeist
 else
-CC=gcc
+## ClangIR
+CC=${LLVM_INSTALL}/bin/clang
+## Polygeist
+#CC=${LLVM_INSTALL}/bin/cgeist
 endif
 
-CPP=g++ -std=c++11
-NVCC=nvcc
-OPTS=-Ofast
-LDFLAGS= -lm -pthread
-COMMON= -Iinclude/ -I3rdparty/stb/include
-CFLAGS=-Wall -Wfatal-errors -Wno-unused-result -Wno-unknown-pragmas -fPIC -rdynamic
+#CPP=/home/kqd0717/MOCHA/clangir-install/bin/clang++ -std=c++11
+## ClangIR Begin
+CPP=${LLVM_INSTALL}/bin/clang++
+CFLAGS=-Wall -Wfatal-errors -Wno-unused-result -Wno-unknown-pragmas -Wno-error=incompatible-pointer-types -fPIC -Xlinker -export-dynamic
+## ClangIR End
+## Polygeist Begin
+#CPP=${LLVM_INSTALL}/bin/cgeist
+#CFLAGS=-fPIC -Wl,--export-dynamic
+## Polygeist End
+NVCC=${CUDA_INSTALL}/bin/nvcc
+#OPTS=-O3 -ffast-math
+LDFLAGS= -lm -pthread -lstdc++
+COMMON= -Iinclude/ -I3rdparty/stb/include 
 
 ifeq ($(DEBUG), 1)
-#OPTS= -O0 -g
+OPTS= -O0 -g
 #OPTS= -Og -g
 COMMON+= -DDEBUG
 CFLAGS+= -DDEBUG
@@ -126,24 +142,24 @@ ifeq ($(OPENMP), 1)
 	else
 		CFLAGS+= -fopenmp
 	endif
-LDFLAGS+= -lgomp
+LDFLAGS+= -L/home/kqd0717/MOCHA/clangir-llvm-project/build/runtimes/runtimes-bins/openmp/runtime/src/ -lgomp
 endif
 
 ifeq ($(GPU), 1)
-COMMON+= -DGPU -I/usr/local/cuda/include/
+COMMON+= -DGPU -I${CUDA_INSTALL}/include/ -I/home/kqd0717/MOCHA/cuda-install/targets/x86_64-linux/include
 CFLAGS+= -DGPU
 ifeq ($(OS),Darwin) #MAC
-LDFLAGS+= -L/usr/local/cuda/lib -lcuda -lcudart -lcublas -lcurand
+LDFLAGS+= -L${CUDA_INSTALL}/lib -lcuda -lcudart -lcublas -lcurand
 else
-LDFLAGS+= -L/usr/local/cuda/lib64 -lcuda -lcudart -lcublas -lcurand
+LDFLAGS+= -L${CUDA_INSTALL}/lib64 -lcuda -lcudart -lcublas -lcurand
 endif
 endif
 
 ifeq ($(CUDNN), 1)
 COMMON+= -DCUDNN
 ifeq ($(OS),Darwin) #MAC
-CFLAGS+= -DCUDNN -I/usr/local/cuda/include
-LDFLAGS+= -L/usr/local/cuda/lib -lcudnn
+CFLAGS+= -DCUDNN -I${CUDA_INSTALL}/include
+LDFLAGS+= -L${CUDA_INSTALL}/lib -lcudnn
 else
 CFLAGS+= -DCUDNN -I/usr/local/cudnn/include
 LDFLAGS+= -L/usr/local/cudnn/lib64 -lcudnn
@@ -167,10 +183,21 @@ LDFLAGS+= -L/usr/local/zed/lib -lsl_zed
 endif
 endif
 
-OBJ=image_opencv.o http_stream.o gemm.o utils.o dark_cuda.o convolutional_layer.o list.o image.o activations.o im2col.o col2im.o blas.o crop_layer.o dropout_layer.o maxpool_layer.o softmax_layer.o data.o matrix.o network.o connected_layer.o cost_layer.o parser.o option_list.o darknet.o detection_layer.o captcha.o route_layer.o writing.o box.o nightmare.o normalization_layer.o avgpool_layer.o coco.o dice.o yolo.o detector.o layer.o compare.o classifier.o local_layer.o swag.o shortcut_layer.o representation_layer.o activation_layer.o rnn_layer.o gru_layer.o rnn.o rnn_vid.o crnn_layer.o demo.o tag.o cifar.o go.o batchnorm_layer.o art.o region_layer.o reorg_layer.o reorg_old_layer.o super.o voxel.o tree.o yolo_layer.o gaussian_yolo_layer.o upsample_layer.o lstm_layer.o conv_lstm_layer.o scale_channels_layer.o sam_layer.o
+ifeq ($(OFFLOAD), 1)
+	CFLAGS+=--cuda-path=/home/kqd0717/MOCHA/cuda-install --offload-arch=sm_75
+	ifeq ($(OPENMP), 1)
+		CFLAGS+=-fopenmp-targets=nvptx64 -Xopenmp-target=nvptx64
+	endif
+	LDFLAGS+=--libomptarget-nvptx-bc-path=/home/kqd0717/MOCHA/llvm-project/build/lib/nvptx64-nvidia-cuda/libomptarget-nvptx.bc -Xoffload-linker -L/home/kqd0717/MOCHA/llvm-project/build/lib/nvptx64-nvidia-cuda
+endif
+
+OBJ=cJSON.o image_opencv.o http_stream.o gemm.o utils.o dark_cuda.o convolutional_layer.o list.o image.o activations.o im2col.o col2im.o blas.o crop_layer.o dropout_layer.o maxpool_layer.o softmax_layer.o data.o matrix.o network.o connected_layer.o cost_layer.o parser.o option_list.o darknet.o detection_layer.o captcha.o route_layer.o writing.o box.o nightmare.o normalization_layer.o avgpool_layer.o coco.o dice.o yolo.o detector.o layer.o compare.o classifier.o local_layer.o swag.o shortcut_layer.o representation_layer.o activation_layer.o rnn_layer.o gru_layer.o rnn.o rnn_vid.o crnn_layer.o demo.o tag.o cifar.o go.o batchnorm_layer.o art.o region_layer.o reorg_layer.o reorg_old_layer.o super.o voxel.o tree.o yolo_layer.o gaussian_yolo_layer.o upsample_layer.o lstm_layer.o conv_lstm_layer.o scale_channels_layer.o sam_layer.o
 ifeq ($(GPU), 1)
 LDFLAGS+= -lstdc++
 OBJ+=convolutional_kernels.o activation_kernels.o im2col_kernels.o col2im_kernels.o blas_kernels.o crop_layer_kernels.o dropout_layer_kernels.o maxpool_layer_kernels.o network_kernels.o avgpool_layer_kernels.o
+endif
+ifeq ($(REMORA_LIB), 1)
+OBJ+=remora.o
 endif
 
 OBJS = $(addprefix $(OBJDIR), $(OBJ))
@@ -182,20 +209,20 @@ ifeq ($(LIBSO), 1)
 CFLAGS+= -fPIC
 
 $(LIBNAMESO): $(OBJDIR) $(OBJS) include/yolo_v2_class.hpp src/yolo_v2_class.cpp
-	$(CPP) -shared -std=c++11 -fvisibility=hidden -DLIB_EXPORTS $(COMMON) $(CFLAGS) $(OBJS) src/yolo_v2_class.cpp -o $@ $(LDFLAGS)
+	$(CPP) -shared -fvisibility=hidden -DLIB_EXPORTS $(COMMON) $(CFLAGS) $(OBJS) src/yolo_v2_class.cpp -o $@ $(LDFLAGS)
 
 $(APPNAMESO): $(LIBNAMESO) include/yolo_v2_class.hpp src/yolo_console_dll.cpp
-	$(CPP) -std=c++11 $(COMMON) $(CFLAGS) -o $@ src/yolo_console_dll.cpp $(LDFLAGS) -L ./ -l:$(LIBNAMESO)
+	$(CPP) $(COMMON) $(CFLAGS) -o $@ src/yolo_console_dll.cpp $(LDFLAGS) -L ./ -l:$(LIBNAMESO)
 endif
 
 $(EXEC): $(OBJS)
-	$(CPP) -std=c++11 $(COMMON) $(CFLAGS) $^ -o $@ $(LDFLAGS)
+	$(CPP) $(COMMON) $(CFLAGS) $^ -o $@ $(LDFLAGS)
 
 $(OBJDIR)%.o: %.c $(DEPS)
 	$(CC) $(COMMON) $(CFLAGS) -c $< -o $@
 
 $(OBJDIR)%.o: %.cpp $(DEPS)
-	$(CPP) -std=c++11 $(COMMON) $(CFLAGS) -c $< -o $@
+	$(CPP) $(COMMON) $(CFLAGS) -c $< -o $@
 
 $(OBJDIR)%.o: %.cu $(DEPS)
 	$(NVCC) $(ARCH) $(COMMON) --compiler-options "$(CFLAGS)" -c $< -o $@
