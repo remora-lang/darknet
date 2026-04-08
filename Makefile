@@ -183,7 +183,7 @@ endif
 
 CFLAGS+=-I${LLVM_INSTALL}/include/mlir/ExecutionEngine -DREMORA
 REMORA_CONV2D=conv2d-shim
-OBJ+=$(REMORA_CONV2D).o
+OBJ+=$(REMORA_CONV2D).o remora_convolution.o
 LDFLAGS+=-L${LLVM_INSTALL}/lib/ -lmlir_runner_utils -lmlir_c_runner_utils
 endif
 

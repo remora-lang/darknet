@@ -1,3 +1,4 @@
+#include "remora_convolution.h"
 #include "convolutional_layer.h"
 #include "utils.h"
 #include "batchnorm_layer.h"
@@ -1392,6 +1393,17 @@ void forward_convolutional_layer(convolutional_layer l, network_state state)
                 else {
                     //im2col_cpu(im, l.c / l.groups, l.h, l.w, l.size, l.stride, l.pad, b);
 
+#ifdef REMORA
+                    // Empty else body, always do im2col
+                }
+                remoraConvolutionForward(
+                    im, l.c / l.groups, l.h, l.w,
+                    a, m, l.size, l.size,
+                    l.pad, l.pad,
+                    l.stride_y, l.stride_x,
+                    l.dilation, l.dilation,
+                    a, b, c, m, n, k);
+#else                   
                     im2col_cpu_ext(im,   // input
                         l.c / l.groups,     // input channels
                         l.h, l.w,           // input size (h, w)
@@ -1404,6 +1416,8 @@ void forward_convolutional_layer(convolutional_layer l, network_state state)
                 }
 
                 gemm(0, 0, m, n, k, 1, a, k, b, n, 1, c, n);
+                // bit-count to float
+#endif                
 
 #ifdef GEN_REMORA_TEST_CASE
                 /* Create output file names, json for dimensions and binary files for matrix data */
