@@ -182,8 +182,8 @@ LDFLAGS+=-lmlir_cuda_runtime
 endif
 
 CFLAGS+=-I${LLVM_INSTALL}/include/mlir/ExecutionEngine -DREMORA
-REMORA_CONV2D=conv2d-shim
-OBJ+=$(REMORA_CONV2D).o remora_convolution.o
+OBJ+=$(REMORA_CONV2D).o remora_convolution.o conv2d_monomorph_10.o conv2d-shim.o 
+
 LDFLAGS+=-L${LLVM_INSTALL}/lib/ -lmlir_runner_utils -lmlir_c_runner_utils
 endif
 
@@ -196,10 +196,12 @@ $(OBJDIR)%.o: %.ll
 		--one-shot-bufferize="bufferize-function-boundaries" \
 		--buffer-deallocation-pipeline \
 		--convert-bufferization-to-memref \
+		--convert-tensor-to-linalg \
 		--convert-linalg-to-loops \
-		--convert-scf-to-cf \
 		--expand-strided-metadata \
 		--lower-affine \
+		--convert-index-to-llvm \
+		--convert-math-to-llvm \
 		--convert-arith-to-llvm \
 		--convert-scf-to-cf \
 		--finalize-memref-to-llvm \
