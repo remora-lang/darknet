@@ -43,14 +43,15 @@
           pkgs.gdb
         ];
         shellHook = ''
-          export PS1="yolo.nix: "
-          read temp_inc temp_lib < ${pkgs.cudaPackages_13.cudnn}/nix-support/propagated-build-inputs
+          export PS1="\W:nix: "
+          read cudann_inc cudann_lib < ${pkgs.cudaPackages_13.cudnn}/nix-support/propagated-build-inputs
           echo "cuda: ${cudatoolkitPatched}"
-          echo "cudnninc: $temp_inc, cudnnlib: $temp_lib"
+          echo "cudnninc: $cudann_inc, cudnn_lib: $cudann_lib"
           echo "nvidia: ${pkgs.linuxPackages.nvidiaPackages.production}"
           echo "opencv: ${pkgs.opencv4}"
-          echo "cudadir: ${cudatoolkitPatched}"
-          function build () { make CUDADIR=${cudatoolkitPatched} NVIDIAPKG=${pkgs.linuxPackages.nvidiaPackages.production} OPENCVDIR=${pkgs.opencv4} CUDNNINC=$temp_inc CUDNNLIB=$temp_lib; }
+          echo "cuda_install: ${cudatoolkitPatched}"
+          echo "llvm_install:" "/home/gts3242/Projects/mocha/llvm-local/install"
+          function build () { make CUDA_INSTALL=${cudatoolkitPatched} NVIDIAPKG=${pkgs.linuxPackages.nvidiaPackages.production} OPENCVDIR=${pkgs.opencv4} CUDNNINC=$cudann_inc CUDNNLIB=$cudann_lib LLVM_INSTALL=/home/gts3242/Projects/mocha/llvm-local/install; }
         '';
       };
     }
