@@ -7,9 +7,8 @@ OPENMP=1
 LIBSO=0
 ZED_CAMERA=0
 ZED_CAMERA_v2_8=0
-OFFLOAD=0
-LLVM_INSTALL=/home/kqd0717/MOCHA/llvm-install
-CUDA_INSTALL=/home/kqd0717/MOCHA/cuda-install/
+LLVM_INSTALL=/home/gts3242/Projects/mocha/mocha-working/gregs-working/llvm-local/install
+
 REMORA_LIB=1
 # set GPU=1 and CUDNN=1 to speedup on GPU
 # set CUDNN_HALF=1 to further speedup 3 x times (Mixed-precision on Tensor Cores) GPU: Volta, Xavier, Turing, Ampere, Ada and higher
@@ -17,8 +16,15 @@ REMORA_LIB=1
 # set ZED_CAMERA=1 to enable ZED SDK 3.0 and above
 # set ZED_CAMERA_v2_8=1 to enable ZED SDK 2.X
 
+ifndef CUDA_INSTALL
+$(error need CUDA_INSTALL to be supplied on command line)
+endif
+ifndef CUDNN_LIB
+$(error need CUDNN_LIB to be supplied on command line)
+endif
+
 USE_CPP=0
-DEBUG=1
+DEBUG=0
 
 ARCH= -gencode arch=compute_50,code=[sm_50,compute_50] \
       -gencode arch=compute_52,code=[sm_52,compute_52] \
@@ -87,30 +93,17 @@ APPNAMESO=uselib
 endif
 
 ifeq ($(USE_CPP), 1)
-## ClangIR
 CC=${LLVM_INSTALL}/bin/clang++
-## Polygeist
-#CC=${LLVM_INSTALL}/bin/cgeist
 else
-## ClangIR
 CC=${LLVM_INSTALL}/bin/clang
-## Polygeist
-#CC=${LLVM_INSTALL}/bin/cgeist
 endif
 
-#CPP=/home/kqd0717/MOCHA/clangir-install/bin/clang++ -std=c++11
-## ClangIR Begin
 CPP=${LLVM_INSTALL}/bin/clang++
 CFLAGS=-Wall -Wfatal-errors -Wno-unused-result -Wno-unknown-pragmas -Wno-error=incompatible-pointer-types -fPIC -Xlinker -export-dynamic
-## ClangIR End
-## Polygeist Begin
-#CPP=${LLVM_INSTALL}/bin/cgeist
-#CFLAGS=-fPIC -Wl,--export-dynamic
-## Polygeist End
 NVCC=${CUDA_INSTALL}/bin/nvcc
-#OPTS=-O3 -ffast-math
+OPTS=-O3 -ffast-math
 LDFLAGS= -lm -pthread -lstdc++
-COMMON= -Iinclude/ -I3rdparty/stb/include 
+COMMON= -Iinclude/ -I3rdparty/stb/include
 
 ifeq ($(DEBUG), 1)
 OPTS= -O0 -g
@@ -142,11 +135,11 @@ ifeq ($(OPENMP), 1)
 	else
 		CFLAGS+= -fopenmp
 	endif
-LDFLAGS+= -L/home/kqd0717/MOCHA/clangir-llvm-project/build/runtimes/runtimes-bins/openmp/runtime/src/ -lgomp
+LDFLAGS+= -lgomp
 endif
 
 ifeq ($(GPU), 1)
-COMMON+= -DGPU -I${CUDA_INSTALL}/include/ -I/home/kqd0717/MOCHA/cuda-install/targets/x86_64-linux/include
+COMMON+= -DGPU -I${CUDA_INSTALL}/include/
 CFLAGS+= -DGPU
 ifeq ($(OS),Darwin) #MAC
 LDFLAGS+= -L${CUDA_INSTALL}/lib -lcuda -lcudart -lcublas -lcurand
@@ -162,7 +155,7 @@ CFLAGS+= -DCUDNN -I${CUDA_INSTALL}/include
 LDFLAGS+= -L${CUDA_INSTALL}/lib -lcudnn
 else
 CFLAGS+= -DCUDNN -I/usr/local/cudnn/include
-LDFLAGS+= -L/usr/local/cudnn/lib64 -lcudnn
+LDFLAGS+= -L${CUDNN_LIB}/lib -lcudnn
 endif
 endif
 
@@ -183,22 +176,79 @@ LDFLAGS+= -L/usr/local/zed/lib -lsl_zed
 endif
 endif
 
-ifeq ($(OFFLOAD), 1)
-	CFLAGS+=--cuda-path=/home/kqd0717/MOCHA/cuda-install --offload-arch=sm_75
-	ifeq ($(OPENMP), 1)
-		CFLAGS+=-fopenmp-targets=nvptx64 -Xopenmp-target=nvptx64
-	endif
-	LDFLAGS+=--libomptarget-nvptx-bc-path=/home/kqd0717/MOCHA/llvm-project/build/lib/nvptx64-nvidia-cuda/libomptarget-nvptx.bc -Xoffload-linker -L/home/kqd0717/MOCHA/llvm-project/build/lib/nvptx64-nvidia-cuda
-endif
-
 OBJ=cJSON.o image_opencv.o http_stream.o gemm.o utils.o dark_cuda.o convolutional_layer.o list.o image.o activations.o im2col.o col2im.o blas.o crop_layer.o dropout_layer.o maxpool_layer.o softmax_layer.o data.o matrix.o network.o connected_layer.o cost_layer.o parser.o option_list.o darknet.o detection_layer.o captcha.o route_layer.o writing.o box.o nightmare.o normalization_layer.o avgpool_layer.o coco.o dice.o yolo.o detector.o layer.o compare.o classifier.o local_layer.o swag.o shortcut_layer.o representation_layer.o activation_layer.o rnn_layer.o gru_layer.o rnn.o rnn_vid.o crnn_layer.o demo.o tag.o cifar.o go.o batchnorm_layer.o art.o region_layer.o reorg_layer.o reorg_old_layer.o super.o voxel.o tree.o yolo_layer.o gaussian_yolo_layer.o upsample_layer.o lstm_layer.o conv_lstm_layer.o scale_channels_layer.o sam_layer.o
 ifeq ($(GPU), 1)
 LDFLAGS+= -lstdc++
 OBJ+=convolutional_kernels.o activation_kernels.o im2col_kernels.o col2im_kernels.o blas_kernels.o crop_layer_kernels.o dropout_layer_kernels.o maxpool_layer_kernels.o network_kernels.o avgpool_layer_kernels.o
 endif
+
 ifeq ($(REMORA_LIB), 1)
-OBJ+=remora.o
+ifeq ($(GPU), 1)
+MLIR_KERNEL=mlir-kernel
+OBJ+=$(MLIR_KERNEL).o
+LDFLAGS+=-lmlir_cuda_runtime
 endif
+
+CFLAGS+=-I${LLVM_INSTALL}/include/mlir/ExecutionEngine -DREMORA
+OBJ+=remora_convolution.o remora_convolution.o conv2d_monomorph_10.o conv2d-shim.o 
+
+LDFLAGS+=-L${LLVM_INSTALL}/lib/ -lmlir_runner_utils -lmlir_c_runner_utils
+endif
+
+$(OBJDIR)%.o: %.ll
+	$(CC) $(LDFLAGS) -c -o $@ $<
+%.ll: %-llvm.mlir
+	${LLVM_INSTALL}/bin/mlir-translate -mlir-to-llvmir -o $@ $<
+%-llvm.mlir: %.mlir
+	${LLVM_INSTALL}/bin/mlir-opt \
+		--one-shot-bufferize="bufferize-function-boundaries" \
+		--buffer-deallocation-pipeline \
+		--convert-bufferization-to-memref \
+		--convert-tensor-to-linalg \
+		--convert-linalg-to-loops \
+		--expand-strided-metadata \
+		--lower-affine \
+		--convert-index-to-llvm \
+		--convert-math-to-llvm \
+		--convert-arith-to-llvm \
+		--convert-scf-to-cf \
+		--finalize-memref-to-llvm \
+		--convert-func-to-llvm \
+		--convert-cf-to-llvm \
+		--reconcile-unrealized-casts \
+		-o $@ $<
+%-kernel-llvm.mlir: %-kernel.mlir
+	${LLVM_INSTALL}/bin/mlir-opt \
+		--pass-pipeline="builtin.module( \
+			func.func(gpu-map-parallel-loops), \
+			gpu-kernel-outlining, \
+			canonicalize, \
+			convert-nvgpu-to-nvvm, \
+			convert-vector-to-scf, \
+			convert-scf-to-cf, \
+			convert-nvvm-to-llvm, \
+			expand-strided-metadata, \
+			nvvm-attach-target, \
+			lower-affine, \
+			convert-arith-to-llvm, \
+			convert-index-to-llvm, \
+			canonicalize, \
+			cse, \
+			gpu.module( \
+				convert-gpu-to-nvvm, \
+				canonicalize, \
+				cse, \
+				reconcile-unrealized-casts \
+			), \
+			gpu-to-llvm, \
+			gpu-module-to-binary, \
+			convert-math-to-llvm, \
+			convert-func-to-llvm, \
+			canonicalize, \
+			cse, \
+			reconcile-unrealized-casts \
+		)" \
+		-o $@ $<
 
 OBJS = $(addprefix $(OBJDIR), $(OBJ))
 DEPS = $(wildcard src/*.h) Makefile include/darknet.h

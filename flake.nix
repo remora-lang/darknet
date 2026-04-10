@@ -50,8 +50,9 @@
           echo "nvidia: ${pkgs.linuxPackages.nvidiaPackages.production}"
           echo "opencv: ${pkgs.opencv4}"
           echo "cuda_install: ${cudatoolkitPatched}"
-          echo "llvm_install:" "/home/gts3242/Projects/mocha/llvm-local/install"
-          function build () { make CUDA_INSTALL=${cudatoolkitPatched} NVIDIAPKG=${pkgs.linuxPackages.nvidiaPackages.production} OPENCVDIR=${pkgs.opencv4} CUDNNINC=$cudann_inc CUDNNLIB=$cudann_lib LLVM_INSTALL=/home/gts3242/Projects/mocha/llvm-local/install; }
+          export PKG_CONFIG_PATH=${pkgs.opencv4}/lib/pkgconfig
+          function build () { make CUDA_INSTALL=${cudatoolkitPatched} NVIDIAPKG=${pkgs.linuxPackages.nvidiaPackages.production} OPENCVDIR=${pkgs.opencv4} CUDNN_INC=$cudann_inc CUDNN_LIB=$cudann_lib; }
+          function clean () { make CUDA_INSTALL=${cudatoolkitPatched} NVIDIAPKG=${pkgs.linuxPackages.nvidiaPackages.production} OPENCVDIR=${pkgs.opencv4} CUDNN_INC=$cudann_inc CUDNN_LIB=$cudann_lib clean; }
         '';
       };
     }
