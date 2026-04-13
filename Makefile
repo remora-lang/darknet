@@ -190,7 +190,7 @@ LDFLAGS+=-lmlir_cuda_runtime
 endif
 
 CFLAGS+=-I${LLVM_INSTALL}/include/mlir/ExecutionEngine -DREMORA
-OBJ+=remora_convolution.o remora_convolution.o conv2d_monomorph_10.o conv2d-shim.o 
+OBJ+=remora_convolution.o conv2d-shim.o 
 
 LDFLAGS+=-L${LLVM_INSTALL}/lib/ -lmlir_runner_utils -lmlir_c_runner_utils
 endif
@@ -201,22 +201,23 @@ $(OBJDIR)%.o: %.ll
 	${LLVM_INSTALL}/bin/mlir-translate -mlir-to-llvmir -o $@ $<
 %-llvm.mlir: %.mlir
 	${LLVM_INSTALL}/bin/mlir-opt \
-		--one-shot-bufferize="bufferize-function-boundaries" \
-		--buffer-deallocation-pipeline \
-		--convert-bufferization-to-memref \
-		--convert-tensor-to-linalg \
-		--convert-linalg-to-loops \
-		--expand-strided-metadata \
-		--lower-affine \
-		--convert-index-to-llvm \
-		--convert-math-to-llvm \
-		--convert-arith-to-llvm \
-		--convert-scf-to-cf \
-		--finalize-memref-to-llvm \
-		--convert-func-to-llvm \
-		--convert-cf-to-llvm \
-		--reconcile-unrealized-casts \
+        --one-shot-bufferize="bufferize-function-boundaries" \
+        --buffer-deallocation-pipeline \
+        --convert-bufferization-to-memref \
+        --convert-tensor-to-linalg \
+        --convert-linalg-to-loops \
+        --expand-strided-metadata \
+        --lower-affine \
+        --convert-scf-to-cf \
+        --convert-cf-to-llvm \
+        --convert-index-to-llvm \
+        --convert-math-to-llvm \
+        --convert-arith-to-llvm \
+        --convert-func-to-llvm \
+        --finalize-memref-to-llvm \
+        --reconcile-unrealized-casts \
 		-o $@ $<
+
 %-kernel-llvm.mlir: %-kernel.mlir
 	${LLVM_INSTALL}/bin/mlir-opt \
 		--pass-pipeline="builtin.module( \
