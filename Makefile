@@ -93,17 +93,23 @@ APPNAMESO=uselib
 endif
 
 ifeq ($(USE_CPP), 1)
-CC=${LLVM_INSTALL}/bin/clang++
+# CC=${LLVM_INSTALL}/bin/clang++
+CC=clang++
 else
-CC=${LLVM_INSTALL}/bin/clang
+# CC=${LLVM_INSTALL}/bin/clang
+CC=clang
 endif
 
-CPP=${LLVM_INSTALL}/bin/clang++
+# CPP=${LLVM_INSTALL}/bin/clang++
+CPP=clang++
 CFLAGS=-Wall -Wfatal-errors -Wno-unused-result -Wno-unknown-pragmas -Wno-error=incompatible-pointer-types -fPIC -Xlinker -export-dynamic
 NVCC=${CUDA_INSTALL}/bin/nvcc
 OPTS=-O3 -ffast-math
 LDFLAGS= -lm -pthread -lstdc++
 COMMON= -Iinclude/ -I3rdparty/stb/include
+
+# for nix:
+## CFLAGS+=-nostdinc -I${LLVM_INSTALL}/include
 
 ifeq ($(DEBUG), 1)
 OPTS= -O0 -g
