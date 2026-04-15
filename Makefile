@@ -7,9 +7,18 @@ OPENMP=1
 LIBSO=0
 ZED_CAMERA=0
 ZED_CAMERA_v2_8=0
-LLVM_INSTALL=/home/gts3242/Projects/mocha/mocha-working/gregs-working/llvm-local/install
+# LLVM_INSTALL=/home/gts3242/Projects/mocha/mocha-working/gregs-working/llvm-local/install
+# MY_CC=${LLVM_INSTALL}/bin/clang
+# MY_CPP=${LLVM_INSTALL}/bin/clang++
+# MY_MLIR_XLATE=${LLVM_INSTALL}/bin/mlir-translate
+# MY_MLIR_OPT=${LLVM_INSTALL}/bin/mlir-opt
+MY_CC=clang
+MY_CPP=clang++
+MY_MLIR_XLATE=mlir-translate
+MY_MLIR_OPT=mlir-opt
 
 REMORA_LIB=1
+
 # set GPU=1 and CUDNN=1 to speedup on GPU
 # set CUDNN_HALF=1 to further speedup 3 x times (Mixed-precision on Tensor Cores) GPU: Volta, Xavier, Turing, Ampere, Ada and higher
 # set AVX=1 and OPENMP=1 to speedup on CPU (if error occurs then set AVX=0)
@@ -19,8 +28,11 @@ REMORA_LIB=1
 ifndef CUDA_INSTALL
 $(error need CUDA_INSTALL to be supplied on command line)
 endif
+
+ifeq ($(CUDNN), 1)
 ifndef CUDNN_LIB
 $(error need CUDNN_LIB to be supplied on command line)
+endif
 endif
 
 USE_CPP=0
@@ -93,15 +105,12 @@ APPNAMESO=uselib
 endif
 
 ifeq ($(USE_CPP), 1)
-# CC=${LLVM_INSTALL}/bin/clang++
-CC=clang++
+CC=${MY_CPP}
 else
-# CC=${LLVM_INSTALL}/bin/clang
-CC=clang
+CC=${MY_CC}
 endif
 
-# CPP=${LLVM_INSTALL}/bin/clang++
-CPP=clang++
+CPP=${MY_CPP}
 CFLAGS=-Wall -Wfatal-errors -Wno-unused-result -Wno-unknown-pragmas -Wno-error=incompatible-pointer-types -fPIC -Xlinker -export-dynamic
 NVCC=${CUDA_INSTALL}/bin/nvcc
 OPTS=-O3 -ffast-math
@@ -198,12 +207,8 @@ OBJ+=remora_convolution.o conv2d-shim.o
 LDFLAGS+=-L${LLVM_INSTALL}/lib/ -lmlir_runner_utils -lmlir_c_runner_utils
 endif
 
-$(OBJDIR)%.o: %.ll
-	$(CC) $(LDFLAGS) -c -o $@ $<
-%.ll: %-llvm.mlir
-	${LLVM_INSTALL}/bin/mlir-translate -mlir-to-llvmir -o $@ $<
 %-llvm.mlir: %.mlir
-	${LLVM_INSTALL}/bin/mlir-opt \
+	${MY_MLIR_OPT} \
         --one-shot-bufferize="bufferize-function-boundaries" \
         --buffer-deallocation-pipeline \
         --convert-bufferization-to-memref \
@@ -221,8 +226,15 @@ $(OBJDIR)%.o: %.ll
         --reconcile-unrealized-casts \
 		-o $@ $<
 
+%.ll: %-llvm.mlir
+	${MY_MLIR_XLATE} -mlir-to-llvmir -o $@ $<
+
+$(OBJDIR)%.o: %.ll
+	$(CC) $(LDFLAGS) -c -o $@ $<
+
 %-kernel-llvm.mlir: %-kernel.mlir
-	${LLVM_INSTALL}/bin/mlir-opt \
+	CUDA_HOME=${CUDA_INSTALL} \
+	${MY_MLIR_OPT} \
 		--pass-pipeline="builtin.module( \
 			func.func(gpu-map-parallel-loops), \
 			gpu-kernel-outlining, \
