@@ -108,9 +108,6 @@ OPTS=-O3 -ffast-math
 LDFLAGS= -lm -pthread -lstdc++
 COMMON= -Iinclude/ -I3rdparty/stb/include
 
-# for nix:
-## CFLAGS+=-nostdinc -I${LLVM_INSTALL}/include
-
 ifeq ($(DEBUG), 1)
 OPTS= -O0 -g
 #OPTS= -Og -g
