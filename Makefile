@@ -16,7 +16,7 @@ REMORA_LIB=1
 # set ZED_CAMERA_v2_8=1 to enable ZED SDK 2.X
 
 USE_CPP=0
-DEBUG=0
+DEBUG=1
 
 ARCH= -gencode arch=compute_50,code=[sm_50,compute_50] \
       -gencode arch=compute_52,code=[sm_52,compute_52] \
@@ -182,17 +182,21 @@ LDFLAGS+=-lmlir_cuda_runtime
 endif
 
 CFLAGS+=-I${LLVM_INSTALL}/include/mlir/ExecutionEngine -DREMORA
-OBJ+=$(REMORA_CONV2D).o remora_convolution.o conv2d_monomorph_10.o conv2d-shim.o 
+#OBJ+=remora_convolution.o conv2d_monomorph_10.o conv2d-shim.o 
+#OBJ+=remora_convolution.o conv2d_monomorph_10.o
+#OBJ+=remora_convolution.o dummy_conv.o
+OBJ+=genned_conv2d.o remora_convolution_futharkc.o 
 
-LDFLAGS+=-L${LLVM_INSTALL}/lib/ -lmlir_runner_utils -lmlir_c_runner_utils
+LDFLAGS+=-L${LLVM_INSTALL}/lib/ -lmlir_runner_utils -lmlir_c_runner_utils -Lfuthark_include
 endif
+MLIR_OPT_COMMON=--mlir-print-ir-after-all --mlir-print-ir-before-all --mlir-print-ir-tree-dir="./"
 
 $(OBJDIR)%.o: %.ll
 	$(CC) $(LDFLAGS) -c -o $@ $<
 %.ll: %-llvm.mlir
 	${LLVM_INSTALL}/bin/mlir-translate -mlir-to-llvmir -o $@ $<
 %-llvm.mlir: %.mlir
-	${LLVM_INSTALL}/bin/mlir-opt \
+	${LLVM_INSTALL}/bin/mlir-opt ${MLIR_OPT_COMMON} \
 		--one-shot-bufferize="bufferize-function-boundaries" \
 		--buffer-deallocation-pipeline \
 		--convert-bufferization-to-memref \
@@ -200,10 +204,10 @@ $(OBJDIR)%.o: %.ll
 		--convert-linalg-to-loops \
 		--expand-strided-metadata \
 		--lower-affine \
+		--convert-scf-to-cf \
 		--convert-index-to-llvm \
 		--convert-math-to-llvm \
 		--convert-arith-to-llvm \
-		--convert-scf-to-cf \
 		--finalize-memref-to-llvm \
 		--convert-func-to-llvm \
 		--convert-cf-to-llvm \
@@ -211,7 +215,7 @@ $(OBJDIR)%.o: %.ll
 		-o $@ $<
 %-kernel-llvm.mlir: %-kernel.mlir
 	CUDA_HOME=/usr/lib/cuda \
-	${LLVM_INSTALL}/bin/mlir-opt \
+	${LLVM_INSTALL}/bin/mlir-opt ${MLIR_OPT_COMMON} \
 		--pass-pipeline="builtin.module( \
 			func.func(gpu-map-parallel-loops), \
 			gpu-kernel-outlining, \

@@ -1,4 +1,4 @@
-#include "remora_convolution.h"
+#include "remora_convolution_futharkc.h"
 #include "convolutional_layer.h"
 #include "utils.h"
 #include "batchnorm_layer.h"
@@ -1396,7 +1396,7 @@ void forward_convolutional_layer(convolutional_layer l, network_state state)
 #ifdef REMORA
                     // Empty else body, always do im2col
                 }
-                remoraConvolutionForward(
+                remoraConvolutionForward(l, 
                     im, l.c / l.groups, l.h, l.w,
                     a, m, l.size, l.size,
                     l.pad, l.pad,
