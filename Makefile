@@ -9,6 +9,7 @@ ZED_CAMERA=0
 ZED_CAMERA_v2_8=0
 LLVM_INSTALL=/home/kqd0717/MOCHA/llvm-install
 REMORA_LIB=1
+CUDA_HOME=/usr/local/cuda/
 # set GPU=1 and CUDNN=1 to speedup on GPU
 # set CUDNN_HALF=1 to further speedup 3 x times (Mixed-precision on Tensor Cores) GPU: Volta, Xavier, Turing, Ampere, Ada and higher
 # set AVX=1 and OPENMP=1 to speedup on CPU (if error occurs then set AVX=0)
@@ -185,9 +186,14 @@ CFLAGS+=-I${LLVM_INSTALL}/include/mlir/ExecutionEngine -DREMORA
 #OBJ+=remora_convolution.o conv2d_monomorph_10.o conv2d-shim.o 
 #OBJ+=remora_convolution.o conv2d_monomorph_10.o
 #OBJ+=remora_convolution.o dummy_conv.o
-OBJ+=genned_conv2d.o remora_convolution_futharkc.o 
+#OBJ+=genned_conv2d.o remora_convolution_futharkc.o 
+OBJ+=genned_conv2d_gpu.o remora_convolution_futharkgpu.o 
 
-LDFLAGS+=-L${LLVM_INSTALL}/lib/ -lmlir_runner_utils -lmlir_c_runner_utils -Lfuthark_include
+LDFLAGS+=-L${LLVM_INSTALL}/lib/ -lmlir_runner_utils -lmlir_c_runner_utils
+# GPU Stuff
+LDFLAGS+=-L${CUDA_HOME}/lib64 -L${CUDA_HOME}/lib -lcuda -lcudart -lcublas -lcurand -lcudnn -lnvrtc
+CFLAGS+=-I${CUDA_HOME}/include 
+
 endif
 MLIR_OPT_COMMON=--mlir-print-ir-after-all --mlir-print-ir-before-all --mlir-print-ir-tree-dir="./"
 
