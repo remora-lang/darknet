@@ -75,6 +75,7 @@ OS := $(shell uname)
 # NOT TESTED, THEORETICAL
 # Nvidia H100
 # ARCH= -gencode arch=compute_90,code=[sm_90,compute_90]
+ARCH= -gencode arch=compute_100,code=[sm_100,compute_100]
 
 VPATH=./src/
 EXEC=darknet
@@ -183,15 +184,12 @@ LDFLAGS+=-lmlir_cuda_runtime
 endif
 
 CFLAGS+=-I${LLVM_INSTALL}/include/mlir/ExecutionEngine -DREMORA
-#OBJ+=remora_convolution.o conv2d_monomorph_10.o conv2d-shim.o 
-#OBJ+=remora_convolution.o conv2d_monomorph_10.o
-#OBJ+=remora_convolution.o dummy_conv.o
-#OBJ+=genned_conv2d.o remora_convolution_futharkc.o 
-OBJ+=genned_conv2d_gpu.o remora_convolution_futharkgpu.o 
+#OBJ+=genned_conv2d_opt.o remora_convolution.o inc2_gpu_scaffold.o mlir_cuda_alloc.o
+OBJ+=genned_conv2d_opt.o remora_convolution.o mlir_cuda_alloc.o
 
 LDFLAGS+=-L${LLVM_INSTALL}/lib/ -lmlir_runner_utils -lmlir_c_runner_utils
 # GPU Stuff
-LDFLAGS+=-L${CUDA_HOME}/lib64 -L${CUDA_HOME}/lib -lcuda -lcudart -lcublas -lcurand -lcudnn -lnvrtc
+LDFLAGS+=-L${CUDA_HOME}/lib64 -L${CUDA_HOME}/lib -lcuda -lcudart -lcublas -lcurand -lcudnn -lnvrtc -lmlir_cuda_runtime
 CFLAGS+=-I${CUDA_HOME}/include 
 
 endif
@@ -220,7 +218,6 @@ $(OBJDIR)%.o: %.ll
 		--reconcile-unrealized-casts \
 		-o $@ $<
 %-kernel-llvm.mlir: %-kernel.mlir
-	CUDA_HOME=/usr/lib/cuda \
 	${LLVM_INSTALL}/bin/mlir-opt ${MLIR_OPT_COMMON} \
 		--pass-pipeline="builtin.module( \
 			func.func(gpu-map-parallel-loops), \
