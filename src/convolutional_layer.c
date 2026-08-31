@@ -1364,29 +1364,6 @@ void forward_convolutional_layer(convolutional_layer l, network_state state)
                 //printf(" l.index = %d - FP32 \n", l.index);
                 float *im = state.input + (i*l.groups + j)*(l.c / l.groups)*l.h*l.w;
 
-#ifdef GEN_REMORA_TEST_CASE
-                #include "cJSON.h"
-                #include <stdlib.h>
-                #include <time.h>
-                /* Counter to uniquely distinguish test case files */
-                cJSON *root = cJSON_CreateObject();
-
-                // Add image output 
-                cJSON_AddNumberToObject(root, "input-channels", l.c / l.groups);
-                cJSON_AddNumberToObject(root, "input-h", l.h);
-                cJSON_AddNumberToObject(root, "input-w", l.w);
-                cJSON_AddNumberToObject(root, "kernel-h", l.size);
-                cJSON_AddNumberToObject(root, "kernel-w", l.size);
-                cJSON_AddNumberToObject(root, "pad-h", l.pad * l.dilation);
-                cJSON_AddNumberToObject(root, "pad-w", l.pad * l.dilation);
-                cJSON_AddNumberToObject(root, "stride-h", l.stride_y);
-                cJSON_AddNumberToObject(root, "stride-w", l.stride_x);
-                cJSON_AddNumberToObject(root, "dilation", l.dilation);
-                cJSON_AddNumberToObject(root, "m", m);
-                cJSON_AddNumberToObject(root, "n", n);
-                cJSON_AddNumberToObject(root, "k", k);
-#endif
-                
                 if (l.size == 1 && l.stride == 1 && l.dilation == 1) {
                     b = im;
                 }
@@ -1419,54 +1396,6 @@ void forward_convolutional_layer(convolutional_layer l, network_state state)
                 // bit-count to float
 #endif                
 
-#ifdef GEN_REMORA_TEST_CASE
-                /* Create output file names, json for dimensions and binary files for matrix data */
-                static int counter = 0;
-                counter++;
-
-                time_t timestamp = time(NULL);
-                char param_filename[100];
-                sprintf(param_filename, "input_%d_%ld.json", counter, timestamp);
-                char image_filename[100];
-                sprintf(image_filename, "input_%d_%ld_im.dat", counter, timestamp);
-                char weights_filename[100];
-                sprintf(weights_filename, "input_%d_%ld_weights.dat", counter, timestamp);
-                char im2col_result_filename[100];
-                sprintf(im2col_result_filename, "input_%d_%ld_im2col_output.dat", counter, timestamp);
-                char gemm_result_filename[100];
-                sprintf(gemm_result_filename, "input_%d_%ld_gemm_output.dat", counter, timestamp);
-
-                if (counter < 11) {
-                    FILE *fp;
-                  
-                    /* Output input image to file */
-                    fp = fopen(image_filename, "wb");
-                    fwrite(im, sizeof(float), l.h * l.w * (l.c / l.groups), fp);
-                    fclose(fp);
-                    /* Output input weights to file */
-                    fp = fopen(weights_filename, "wb");
-                    fwrite(a, sizeof(float), m * k, fp);
-                    fclose(fp);
-                    /* Output im2col output to file */
-                    fp = fopen(im2col_result_filename, "wb");
-                    fwrite(b, sizeof(float), k * n, fp);
-                    fclose(fp);
-                    /* Output gemm output to file */
-                    fp = fopen(gemm_result_filename, "wb");
-                    fwrite(c, sizeof(float), m * n, fp);
-                    fclose(fp);
-
-                    /* Output parameters to matrices to file */
-                    cJSON_AddStringToObject(root, "image-file", image_filename);
-                    cJSON_AddStringToObject(root, "weights-file", weights_filename);
-                    cJSON_AddStringToObject(root, "im2col-result-file", im2col_result_filename);
-                    cJSON_AddStringToObject(root, "gemm-result-file", gemm_result_filename);
-                    fp = fopen(param_filename, "w");
-                    char *json_text = cJSON_Print(root);
-                    fprintf(fp, "%s", json_text);
-                    fclose(fp);
-                }
-#endif
                 // bit-count to float
             }
             //c += n*m;

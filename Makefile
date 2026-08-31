@@ -1,3 +1,7 @@
+LLVM_INSTALL=/home/kqd0717/MOCHA/llvm-install
+CUDA_HOME=/usr/local/cuda/
+REMORA=1
+
 GPU=0
 CUDNN=0
 CUDNN_HALF=0
@@ -7,9 +11,6 @@ OPENMP=1
 LIBSO=0
 ZED_CAMERA=0
 ZED_CAMERA_v2_8=0
-LLVM_INSTALL=/home/kqd0717/MOCHA/llvm-install
-REMORA_LIB=1
-CUDA_HOME=/usr/local/cuda/
 # set GPU=1 and CUDNN=1 to speedup on GPU
 # set CUDNN_HALF=1 to further speedup 3 x times (Mixed-precision on Tensor Cores) GPU: Volta, Xavier, Turing, Ampere, Ada and higher
 # set AVX=1 and OPENMP=1 to speedup on CPU (if error occurs then set AVX=0)
@@ -75,7 +76,7 @@ OS := $(shell uname)
 # NOT TESTED, THEORETICAL
 # Nvidia H100
 # ARCH= -gencode arch=compute_90,code=[sm_90,compute_90]
-ARCH= -gencode arch=compute_100,code=[sm_100,compute_100]
+ARCH= -gencode arch=compute_120,code=[sm_120,compute_120]
 
 VPATH=./src/
 EXEC=darknet
@@ -104,6 +105,7 @@ OPTS= -O0 -g
 #OPTS= -Og -g
 COMMON+= -DDEBUG
 CFLAGS+= -DDEBUG
+#MLIR_OPT_COMMON=--debug
 else
 ifeq ($(AVX), 1)
 CFLAGS+= -ffp-contract=fast -mavx -mavx2 -msse3 -msse4.1 -msse4.2 -msse4a
@@ -176,7 +178,7 @@ LDFLAGS+= -lstdc++
 OBJ+=convolutional_kernels.o activation_kernels.o im2col_kernels.o col2im_kernels.o blas_kernels.o crop_layer_kernels.o dropout_layer_kernels.o maxpool_layer_kernels.o network_kernels.o avgpool_layer_kernels.o
 endif
 
-ifeq ($(REMORA_LIB), 1)
+ifeq ($(REMORA), 1)
 ifeq ($(GPU), 1)
 MLIR_KERNEL=mlir-kernel
 OBJ+=$(MLIR_KERNEL).o
@@ -193,7 +195,7 @@ LDFLAGS+=-L${CUDA_HOME}/lib64 -L${CUDA_HOME}/lib -lcuda -lcudart -lcublas -lcura
 CFLAGS+=-I${CUDA_HOME}/include 
 
 endif
-MLIR_OPT_COMMON=--mlir-print-ir-after-all --mlir-print-ir-before-all --mlir-print-ir-tree-dir="./"
+MLIR_OPT_COMMON+= --mlir-print-ir-after-all --mlir-print-ir-before-all --mlir-print-ir-tree-dir="./"
 
 $(OBJDIR)%.o: %.ll
 	$(CC) $(LDFLAGS) -c -o $@ $<
